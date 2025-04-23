@@ -1,4 +1,5 @@
--- Basic Aimbot Script (Team-Based)
+-- Aimbot that locks the camera to the enemy when holding left-click
+-- Targets enemies only (not on the same team)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -6,19 +7,23 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
-local ToggleKey = Enum.KeyCode.E  -- Press E to toggle aimbot
-local AimbotEnabled = false
-local AimPartName = "Head"  -- Change to "HumanoidRootPart" or another part if needed
-local AimRadius = 200  -- Pixels from the mouse where the aimbot will search
+local AimPartName = "Head"  -- Change to "HumanoidRootPart" if you prefer
+local AimRadius = 250  -- Max pixels from mouse to target
+local IsMouseDown = false
 
--- Function to get the closest enemy to your mouse
-local function getClosestEnemy()
+-- Check if a player is an enemy
+local function isEnemy(player)
+    return player ~= LocalPlayer and player.Team ~= LocalPlayer.Team
+end
+
+-- Get closest enemy part near the mouse cursor
+local function getClosestEnemyPart()
     local mousePos = UserInputService:GetMouseLocation()
-    local closestPlayer = nil
+    local closestPart = nil
     local shortestDistance = AimRadius
 
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character then
+        if isEnemy(player) and player.Character then
             local part = player.Character:FindFirstChild(AimPartName)
             if part then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
@@ -26,31 +31,36 @@ local function getClosestEnemy()
                     local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mousePos.X, mousePos.Y)).Magnitude
                     if distance < shortestDistance then
                         shortestDistance = distance
-                        closestPlayer = part
+                        closestPart = part
                     end
                 end
             end
         end
     end
 
-    return closestPlayer
+    return closestPart
 end
 
--- Aiming logic
+-- Lock camera every frame while mouse is held
 RunService.RenderStepped:Connect(function()
-    if AimbotEnabled then
-        local targetPart = getClosestEnemy()
+    if IsMouseDown then
+        local targetPart = getClosestEnemyPart()
         if targetPart then
+            -- Lock camera toward the target
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
         end
     end
 end)
 
--- Toggle aimbot on key press
+-- Mouse hold detection
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == ToggleKey then
-        AimbotEnabled = not AimbotEnabled
-        print("Aimbot " .. (AimbotEnabled and "Enabled" or "Disabled"))
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        IsMouseDown = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        IsMouseDown = false
     end
 end)
